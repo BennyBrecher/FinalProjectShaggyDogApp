@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Shaggy Dog App{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-card">
+        <h1>Upload Headshot</h1>
+        <p class="upload-description">
+            Upload a human headshot photo, and we'll transform it into a dog version!
+        </p>
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="file" class="file-label">
+                    <span class="file-label-text">Choose an image file</span>
+                    <input type="file" id="file" name="file" accept="image/*" required>
+                </label>
+                <small class="form-help">Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 16MB)</small>
+            </div>
+            <div class="form-group">
+                <label for="pipeline_type">Pipeline:</label>
+                <div class="pipeline-selection">
+                    <label class="pipeline-option">
+                        <input type="radio" name="pipeline_type" value="dalle_gpt" checked>
+                        <span class="pipeline-label">
+                            <strong>DALL-E 2 + gpt-image-1</strong>
+                            <small>Stages 1-2: DALL-E 2, Stage 3: gpt-image-1 enhancement only</small>
+                        </span>
+                    </label>
+                    <label class="pipeline-option">
+                        <input type="radio" name="pipeline_type" value="gpt_only">
+                        <span class="pipeline-label">
+                            <strong>All gpt-image-1</strong>
+                            <small>Stage 3 adds body fur</small>
+                        </span>
+                    </label>
+                    <label class="pipeline-option">
+                        <input type="radio" name="pipeline_type" value="both">
+                        <span class="pipeline-label">
+                            <strong>Launch Both Generation Routes Via Multithreading</strong>
+                            <small>Run both pipelines simultaneously and compare results side-by-side</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-large">Upload & Generate</button>
+        </form>
+        
+        {% if uploaded_image %}
+        <div class="uploaded-image-preview">
+            <h3>Uploaded Image:</h3>
+            <img src="{{ url_for('uploaded_file', filename=uploaded_image) }}" alt="Uploaded image" class="preview-image">
+            <p class="preview-note">Your image has been uploaded! <a href="{{ url_for('dashboard') }}">View dashboard</a> to see the transformation progress.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Shaggy Dog App{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>My Transformations</h1>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload New Image</a>
+    </div>
+
+    {% if unified_items %}
+        <div class="images-grid">
+            {% for item in unified_items %}
+                {% if item.type == 'paired' %}
+                    {# Display paired images side-by-side #}
+                    {% set pair = item.data %}
+                    {% set seq_num = sequence_map[pair.batch_id] %}
+                    <div class="paired-image-card">
+                        <div class="paired-header">
+                            <h3>Transformation #{{ seq_num }} - Dual Pipeline Comparison</h3>
+                            {% if pair.image_1.breed_detected %}
+                                <span class="breed-badge">Detected: {{ pair.image_1.breed_detected.replace('_', ' ').title() }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="paired-pipelines">
+                            {# Pipeline 1: DALL-E 2 + gpt-image-1 #}
+                            <div class="pipeline-column pipeline-dalle">
+                                <div class="pipeline-label-badge">DALL-E 2 + gpt-image-1</div>
+                                <div class="image-card">
+                                    <div class="transformation-sequence">
+                                        <div class="transformation-step">
+                                            <h4>Original</h4>
+                                            <img src="{{ url_for('serve_image', image_id=pair.image_1.id, image_type='original') }}" 
+                                                 alt="Original" class="transformation-image">
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 1: Ears</h4>
+                                            {% if pair.image_1.image_1_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_1.id, image_type='transition1') }}" 
+                                                     alt="Stage 1: Ears" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    <div class="spinner"></div>
+                                                    <p>Generating...</p>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 2: Snout</h4>
+                                            {% if pair.image_1.image_2_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_1.id, image_type='transition2') }}" 
+                                                     alt="Stage 2: Snout" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    {% if pair.image_1.status == 'generating_1' %}
+                                                        <p>Waiting...</p>
+                                                    {% else %}
+                                                        <div class="spinner"></div>
+                                                        <p>Generating...</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 3: Finalized</h4>
+                                            {% if pair.image_1.final_dog_image_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_1.id, image_type='final') }}" 
+                                                     alt="Final Dog" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    {% if pair.image_1.status in ['generating_1', 'generating_2'] %}
+                                                        <p>Waiting...</p>
+                                                    {% else %}
+                                                        <div class="spinner"></div>
+                                                        <p>Generating...</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if pair.image_1.status != 'completed' and pair.image_1.status != 'error' %}
+                                        <div class="processing-indicator">
+                                            <div class="status-message">
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar" style="width: {{ pair.image_1.get_progress_percent() }}%"></div>
+                                                </div>
+                                                <p class="progress-text">
+                                                    {% if pair.image_1.status == 'uploaded' %}
+                                                        🔄 Starting... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_1.status == 'detecting' %}
+                                                        🔍 Detecting breed... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_1.status == 'generating_1' %}
+                                                        🎨 Stage 1... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_1.status == 'generating_2' %}
+                                                        🎨 Stage 2... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_1.status == 'generating_final' %}
+                                                        ✨ Stage 3... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% else %}
+                                                        ⏳ Processing... ({{ pair.image_1.get_progress_percent()|int }}%)
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    {% elif pair.image_1.status == 'error' %}
+                                        <div class="error-indicator">
+                                            <div class="error-message">
+                                                <p><strong>❌ Error:</strong></p>
+                                                <p class="error-details">{{ pair.image_1.error_message or 'Unknown error' }}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {# Pipeline 2: All gpt-image-1 #}
+                            <div class="pipeline-column pipeline-gpt">
+                                <div class="pipeline-label-badge">All gpt-image-1</div>
+                                <div class="image-card">
+                                    <div class="transformation-sequence">
+                                        <div class="transformation-step">
+                                            <h4>Original</h4>
+                                            <img src="{{ url_for('serve_image', image_id=pair.image_2.id, image_type='original') }}" 
+                                                 alt="Original" class="transformation-image">
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 1: Ears</h4>
+                                            {% if pair.image_2.image_1_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_2.id, image_type='transition1') }}" 
+                                                     alt="Stage 1: Ears" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    <div class="spinner"></div>
+                                                    <p>Generating...</p>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 2: Snout</h4>
+                                            {% if pair.image_2.image_2_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_2.id, image_type='transition2') }}" 
+                                                     alt="Stage 2: Snout" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    {% if pair.image_2.status == 'generating_1' %}
+                                                        <p>Waiting...</p>
+                                                    {% else %}
+                                                        <div class="spinner"></div>
+                                                        <p>Generating...</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="transformation-step">
+                                            <h4>Stage 3: Finalized</h4>
+                                            {% if pair.image_2.final_dog_image_data %}
+                                                <img src="{{ url_for('serve_image', image_id=pair.image_2.id, image_type='final') }}" 
+                                                     alt="Final Dog" class="transformation-image">
+                                            {% else %}
+                                                <div class="image-placeholder">
+                                                    {% if pair.image_2.status in ['generating_1', 'generating_2'] %}
+                                                        <p>Waiting...</p>
+                                                    {% else %}
+                                                        <div class="spinner"></div>
+                                                        <p>Generating...</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if pair.image_2.status != 'completed' and pair.image_2.status != 'error' %}
+                                        <div class="processing-indicator">
+                                            <div class="status-message">
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar" style="width: {{ pair.image_2.get_progress_percent() }}%"></div>
+                                                </div>
+                                                <p class="progress-text">
+                                                    {% if pair.image_2.status == 'uploaded' %}
+                                                        🔄 Starting... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_2.status == 'detecting' %}
+                                                        🔍 Detecting breed... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_2.status == 'generating_1' %}
+                                                        🎨 Stage 1... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_2.status == 'generating_2' %}
+                                                        🎨 Stage 2... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% elif pair.image_2.status == 'generating_final' %}
+                                                        ✨ Stage 3... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% else %}
+                                                        ⏳ Processing... ({{ pair.image_2.get_progress_percent()|int }}%)
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    {% elif pair.image_2.status == 'error' %}
+                                        <div class="error-indicator">
+                                            <div class="error-message">
+                                                <p><strong>❌ Error:</strong></p>
+                                                <p class="error-details">{{ pair.image_2.error_message or 'Unknown error' }}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    {# Display single image #}
+                    {% set image = item.data %}
+                    {% set seq_num = sequence_map[image.id] %}
+                    <div class="image-card">
+                        <div class="image-card-header">
+                            <h3>Transformation #{{ seq_num }}</h3>
+                            {% if image.breed_detected %}
+                                <span class="breed-badge">Detected: {{ image.breed_detected.replace('_', ' ').title() }}</span>
+                            {% elif image.status == 'error' %}
+                                <span class="breed-badge error">Error</span>
+                            {% else %}
+                                <span class="breed-badge processing">Processing...</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="transformation-sequence">
+                            <div class="transformation-step">
+                                <h4>Original</h4>
+                                <img src="{{ url_for('serve_image', image_id=image.id, image_type='original') }}" 
+                                     alt="Original" class="transformation-image">
+                            </div>
+                            
+                            <div class="transformation-step">
+                                <h4>Stage 1: Ears</h4>
+                                {% if image.image_1_data %}
+                                    <img src="{{ url_for('serve_image', image_id=image.id, image_type='transition1') }}" 
+                                         alt="Stage 1: Ears" class="transformation-image">
+                                {% else %}
+                                    <div class="image-placeholder">
+                                        <div class="spinner"></div>
+                                        <p>Generating...</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="transformation-step">
+                                <h4>Stage 2: Snout</h4>
+                                {% if image.image_2_data %}
+                                    <img src="{{ url_for('serve_image', image_id=image.id, image_type='transition2') }}" 
+                                         alt="Stage 2: Snout" class="transformation-image">
+                                {% else %}
+                                    <div class="image-placeholder">
+                                        {% if image.status == 'generating_1' %}
+                                            <p>Waiting...</p>
+                                        {% else %}
+                                            <div class="spinner"></div>
+                                            <p>Generating...</p>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="transformation-step">
+                                <h4>Stage 3: Finalized</h4>
+                                {% if image.final_dog_image_data %}
+                                    <img src="{{ url_for('serve_image', image_id=image.id, image_type='final') }}" 
+                                         alt="Final Dog" class="transformation-image">
+                                {% else %}
+                                    <div class="image-placeholder">
+                                        {% if image.status in ['generating_1', 'generating_2'] %}
+                                            <p>Waiting...</p>
+                                        {% else %}
+                                            <div class="spinner"></div>
+                                            <p>Generating...</p>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if image.status != 'completed' and image.status != 'error' %}
+                            <div class="processing-indicator">
+                                <div class="status-message">
+                                    <div class="progress-bar-container">
+                                        <div class="progress-bar" style="width: {{ image.get_progress_percent() }}%"></div>
+                                    </div>
+                                    <p class="progress-text">
+                                        {% if image.status == 'uploaded' %}
+                                            🔄 Starting processing... (Step 0/4 - 0%)
+                                        {% elif image.status == 'detecting' %}
+                                            🔍 Detecting dog breed... (Step 1/4 - 12%)
+                                        {% elif image.status == 'generating_1' %}
+                                            🎨 Stage 1: Adding dog ears... (Step 2/4 - 38%)
+                                        {% elif image.status == 'generating_2' %}
+                                            🎨 Stage 2: Adding dog snout... (Step 3/4 - 62%)
+                                        {% elif image.status == 'generating_final' %}
+                                            ✨ Stage 3: Finalizing with gpt-image-1... (Step 4/4 - 88%)
+                                        {% else %}
+                                            ⏳ Processing... ({{ image.get_progress_percent()|int }}%)
+                                        {% endif %}
+                                    </p>
+                                    <p class="progress-note">Each image takes ~30-60 seconds. Total time: ~2-3 minutes.</p>
+                                </div>
+                            </div>
+                        {% elif image.status == 'error' %}
+                            <div class="error-indicator">
+                                <div class="error-message">
+                                    <p><strong>❌ Error occurred during generation:</strong></p>
+                                    <p class="error-details">{{ image.error_message or 'Unknown error occurred' }}</p>
+                                    <p class="error-help">Please try uploading again. If the issue persists, check your API key.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No transformations yet. Upload your first headshot to get started!</p>
+            <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Image</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
