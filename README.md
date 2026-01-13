@@ -65,6 +65,7 @@ A Flask-based web application that transforms human headshots into dog versions 
    ```bash
    python app.py
    ```
+   For production deployment, use: `gunicorn app:app --bind 0.0.0.0:5000`
 6. Navigate to `http://127.0.0.1:5000` in your browser
 
 ## Project Structure
@@ -189,7 +190,7 @@ This application is designed for deployment on Render or similar platforms:
    - The `uploads/` directory has been removed from the project - all image data is stored in the database
 
 4. **Build Command**: `pip install -r requirements.txt`
-5. **Start Command**: `python app.py` (or `gunicorn app:app` for production)
+5. **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
 
 ## Notes
 
